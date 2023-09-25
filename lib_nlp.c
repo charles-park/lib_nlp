@@ -230,9 +230,9 @@ static int nlp_version (const struct nlp_info *nlp_info, char *get_ver)
         if (read_with_timeout(nlp_fp, rw_buff, sizeof(rw_buff), timeout)) {
             strncpy(get_ver, rw_buff, strlen(rw_buff));
             dbg_msg ("read version is %s\n", get_ver);
-        }
-        else
+        } else {
             dbg_msg ("read time out %d ms or rbuf is NULL!\n", timeout);
+        }
     }
     nlp_disconnect(nlp_fp);
 
@@ -267,13 +267,13 @@ static int nlp_find (const int ip_base, const int nlp_port, struct nlp_info *nlp
         ip_tok = strstr(rbuff, NET_IP_BASE);
         if (ip_tok != NULL) {
             if (nlp_status (ip_tok)) {
+                memset (nlp_list, 0, sizeof(struct nlp_info));
                 strncpy(nlp_list->ip, ip_tok, strlen(ip_tok)-1);
                 nlp_list->conn = 0;
-                nlp_list->port = NLP_PORT_DIRECT;
+                nlp_list->port = nlp_port;
                 while (fgets(rbuff, 4096, fp)) {
                     ip_tok = strstr(rbuff, "MAC Address:");
                     if (ip_tok != NULL) {
-                        // strncpy(nlp_list->mac, ip_tok + 13, 17);
 
                         // aa:bb:cc:dd:ee:ff -> aabbccddeeff
                         sprintf(nlp_list->mac,"%c%c%c%c%c%c%c%c%c%c%c%c",
@@ -384,7 +384,8 @@ static void convert_to_zpl (char *sbuf, char mtype, char *msg, char ch)
         len += sprintf (&sbuf[len], "%s", "^CFC");
         len += sprintf (&sbuf[len], "%s", "^FO310,25");
 
-        if ((ptr = strstr (msg, "001e06")) != NULL) {
+        toupperstr (msg);
+        if ((ptr = strstr (msg, "001E06")) != NULL) {
             len += sprintf (&sbuf[len], "^FD%s^FS",
                     ch == 0 ? "< forum.odroid.com" : "forum.odroid.com >");
         } else {
@@ -437,10 +438,6 @@ static int nlp_write (const struct nlp_info *nlp_info, char mtype, char *msg, ch
 
     memset(nlp_ver , 0, sizeof(nlp_ver));
 
-    if (nlp_info->port == NLP_PORT_SERVER) {
-        dbg_msg ("Network Label Printer protocol : %s\n",
-            nlp_version (nlp_info, nlp_ver) ? "new" : "old");
-    }
     if (!(nlp_fp = nlp_connect (nlp_info))) {
         dbg_msg ("Network Label Printer connect error. ip = %s\n", nlp_info->ip);
         return 0;
@@ -449,6 +446,7 @@ static int nlp_write (const struct nlp_info *nlp_info, char mtype, char *msg, ch
     memset (sbuf, 0, sizeof(sbuf));
     // 받아온 문자열 합치기
     if (nlp_info->port == NLP_PORT_SERVER) {
+        nlp_version (nlp_info, nlp_ver);
         if (!strncmp(nlp_ver, "202204", strlen("202204")-1)) {
             // charles modified version
             dbg_msg ("new version nlp-printer. ver = %s\n", nlp_ver);
@@ -469,8 +467,9 @@ static int nlp_write (const struct nlp_info *nlp_info, char mtype, char *msg, ch
         convert_to_zpl (sbuf, mtype, msg, ch);
 
     // 받아온 문자열 전송
-    if ((len = write (nlp_fp, sbuf, strlen(sbuf))) != (int)strlen(sbuf))
+    if ((len = write (nlp_fp, sbuf, strlen(sbuf))) != (int)strlen(sbuf)) {
         dbg_msg ("send bytes error : buf = %ld, write = %d\n", strlen(sbuf), len);
+    }
 
     // 소켓 닫음
     nlp_disconnect (nlp_fp);
@@ -528,9 +527,9 @@ void nlp_scan_list (const struct nlp_info *nlp_info)
                     (nlp_list + i)->mac);
             }
         }
-    }
-    else
+    } else {
         dbg_msg ("[Not found network label printer]\n");
+    }
 
 }
 
@@ -622,12 +621,16 @@ int nlp_init (struct nlp_info *nlp_info, const char *if_name)
                 }
             }
             /* 사용되고 있음을 표시 */
+            memset (nlp_info, 0, sizeof(struct nlp_info));
             (p_info + cnt)->conn = 1;
             memcpy (nlp_info, (p_info + cnt), sizeof(struct nlp_info));
             /* Scan list정보를 보관 */
             nlp_info->list = (void *)p_info;
 
+            printf ("Found network label printer (count = %d).\n", info_cnt);
             dbg_msg ("Found network label printer (count = %d).\n", info_cnt);
+            printf ("Connect info : IP(%s), PORT(%d) MAC(%s)\n",
+                        (p_info + cnt)->ip, (p_info + cnt)->port, (p_info + cnt)->mac);
             dbg_msg ("Connect info : IP(%s), PORT(%d) MAC(%s)\n",
                         (p_info + cnt)->ip, (p_info + cnt)->port, (p_info + cnt)->mac);
 
