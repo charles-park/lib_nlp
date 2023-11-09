@@ -433,8 +433,10 @@ static void convert_to_zpl (char *sbuf, char mtype, char *msg, char ch)
 //------------------------------------------------------------------------------
 static int nlp_write (const struct nlp_info *nlp_info, char mtype, char *msg, char ch)
 {
-    int nlp_fp, len;
-    char sbuf[256], nlp_ver[20];
+    int nlp_fp, len, msg_size = strlen(msg)+32;
+    char nlp_ver[20];
+    // msg buf앞부분에 signature를 붙여야 하므로 32바이트 추가함.
+    char *sbuf = (char *)malloc(msg_size);
 
     memset(nlp_ver , 0, sizeof(nlp_ver));
 
@@ -443,7 +445,13 @@ static int nlp_write (const struct nlp_info *nlp_info, char mtype, char *msg, ch
         return 0;
     }
 
-    memset (sbuf, 0, sizeof(sbuf));
+    if (sbuf == NULL) {
+        dbg_msg ("msg alloc error!\n");
+        return 0;
+    }
+
+    memset (sbuf, 0, msg_size);
+
     // 받아온 문자열 합치기
     if (nlp_info->port == NLP_PORT_SERVER) {
         nlp_version (nlp_info, nlp_ver);
@@ -474,6 +482,8 @@ static int nlp_write (const struct nlp_info *nlp_info, char mtype, char *msg, ch
     // 소켓 닫음
     nlp_disconnect (nlp_fp);
 
+    if (sbuf)
+        free (sbuf);
     return 1;
 }
 
@@ -484,7 +494,7 @@ static int nlp_write (const struct nlp_info *nlp_info, char mtype, char *msg, ch
 //------------------------------------------------------------------------------
 int nlp_status (const char *nlp_ip)
 {
-    char buf[2048];
+    char buf[128];
     FILE *fp;
 
     memset (buf, 0x00, sizeof(buf));
