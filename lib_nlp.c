@@ -433,24 +433,21 @@ static void convert_to_zpl (char *sbuf, char mtype, char *msg, char ch)
 //------------------------------------------------------------------------------
 static int nlp_write (const struct nlp_info *nlp_info, char mtype, char *msg, char ch)
 {
-    int nlp_fp, len, msg_size = strlen(msg)+32;
-    char nlp_ver[20];
-    // msg buf앞부분에 signature를 붙여야 하므로 32바이트 추가함.
-    char *sbuf = (char *)malloc(msg_size);
+    int nlp_fp, len;
+    char nlp_ver[20], sbuf[4096];
 
     memset(nlp_ver , 0, sizeof(nlp_ver));
+    memset(sbuf, 0, sizeof(sbuf));
 
     if (!(nlp_fp = nlp_connect (nlp_info))) {
         dbg_msg ("Network Label Printer connect error. ip = %s\n", nlp_info->ip);
         return 0;
     }
 
-    if (sbuf == NULL) {
+    if (sizeof(sbuf) < strlen(msg)) {
         dbg_msg ("msg alloc error!\n");
         return 0;
     }
-
-    memset (sbuf, 0, msg_size);
 
     // 받아온 문자열 합치기
     if (nlp_info->port == NLP_PORT_SERVER) {
@@ -482,8 +479,6 @@ static int nlp_write (const struct nlp_info *nlp_info, char mtype, char *msg, ch
     // 소켓 닫음
     nlp_disconnect (nlp_fp);
 
-    if (sbuf)
-        free (sbuf);
     return 1;
 }
 
