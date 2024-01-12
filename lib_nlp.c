@@ -452,6 +452,14 @@ static int nlp_write (const struct nlp_info *nlp_info, char mtype, char *msg, ch
     // 받아온 문자열 합치기
     if (nlp_info->port == NLP_PORT_SERVER) {
         nlp_version (nlp_info, nlp_ver);
+
+        // send mac address size control
+        if (!mtype) {
+            if (strlen (msg) > 12)
+                msg [12] = 0x00;
+            tolowerstr (msg);
+        }
+
         if (!strncmp(nlp_ver, "202204", strlen("202204")-1)) {
             // charles modified version
             dbg_msg ("new version nlp-printer. ver = %s\n", nlp_ver);
